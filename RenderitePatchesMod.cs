@@ -10,7 +10,7 @@ public class RenderitePatchesMod : ResoniteMod
 {
     public override string Name => "RenderitePatchesMod";
     public override string Author => "Frozenreflex";
-    public override string Version => "1.0.0";
+    public override string Version => "1.0.1";
 
     public override void OnEngineInit() 
     {
@@ -36,5 +36,17 @@ public static class ShaderPatches
 
         return codeMatcher.Instructions();
     }
-    private static void InsertNewPath(ShaderUpload upload, string originalString, Shader shader) => upload.file = shader.Metadata.SourceFile.FileName;
+    private static void InsertNewPath(ShaderUpload upload, string originalString, Shader shader)
+    {
+        // ReSharper disable once PossibleInvalidOperationException
+        var variant = shader.VariantIndex.Value;
+        var keywords = shader.Metadata.UniqueKeywords;
+        var usedKeywords = new List<string>(keywords.Count);
+        for (var i = 0; i < keywords.Count; i++)
+        {
+            var mask = 1u << i;
+            if ((variant & mask) > 0) usedKeywords.Add(keywords[i]);
+        }
+        upload.file = $"{shader.Metadata.SourceFile.FileName.Replace(".shader", "")} {string.Join(" ", usedKeywords)}";
+    }
 }
