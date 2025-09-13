@@ -6,24 +6,31 @@ using ResoniteModLoader;
 
 namespace Renderite.Godot.Patches;
 
-public class RenderitePatchesMod : ResoniteMod 
+public class RenderitePatchesMod : ResoniteMod
 {
     public override string Name => "RenderitePatchesMod";
     public override string Author => "Frozenreflex";
     public override string Version => "1.0.1";
 
-    public override void OnEngineInit() 
+    public override void OnEngineInit()
     {
         var harmony = new Harmony("Renderite.Godot.Patches");
+        if (Engine.Current.RenderSystem.RendererName != "Renderite.Godot")
+        {
+            Msg("Renderer is not Renderite.Godot, skip patch!");
+            return;
+        }
+
         harmony.PatchAll();
     }
 }
+
 [HarmonyPatch(typeof(Shader))]
-public static class ShaderPatches 
+public static class ShaderPatches
 {
     [HarmonyPatch("LoadTargetVariant", MethodType.Async)]
     [HarmonyTranspiler]
-    public static IEnumerable<CodeInstruction> LoadTargetVariantTranspiler(IEnumerable<CodeInstruction> instructions) 
+    public static IEnumerable<CodeInstruction> LoadTargetVariantTranspiler(IEnumerable<CodeInstruction> instructions)
     {
         var codeMatcher = new CodeMatcher(instructions);
 
@@ -32,10 +39,12 @@ public static class ShaderPatches
         codeMatcher
             .MatchStartForward(CodeMatch.StoresField(field))
             .RemoveInstruction()
-            .InsertAndAdvance(CodeInstruction.LoadLocal(1), CodeInstruction.Call(() => InsertNewPath(default, default, default)));
+            .InsertAndAdvance(CodeInstruction.LoadLocal(1),
+                CodeInstruction.Call(() => InsertNewPath(default, default, default)));
 
         return codeMatcher.Instructions();
     }
+
     private static void InsertNewPath(ShaderUpload upload, string originalString, Shader shader)
     {
         // ReSharper disable once PossibleInvalidOperationException
@@ -47,6 +56,7 @@ public static class ShaderPatches
             var mask = 1u << i;
             if ((variant & mask) > 0) usedKeywords.Add(keywords[i]);
         }
+
         upload.file = $"{shader.Metadata.SourceFile.FileName.Replace(".shader", "")} {string.Join(" ", usedKeywords)}";
     }
 }
